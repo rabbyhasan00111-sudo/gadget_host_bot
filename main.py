@@ -5,8 +5,8 @@
 # ║   Stack: aiogram 3.x · asyncio · SQLite · psutil                   ║
 # ╚══════════════════════════════════════════════════════════════════════╝
 
-from aiogram.client.default import DefaultBotProperties
 from __future__ import annotations
+from aiogram.client.default import DefaultBotProperties
 
 import asyncio
 import io
