@@ -5,6 +5,7 @@
 # ║   Stack: aiogram 3.x · asyncio · SQLite · psutil                   ║
 # ╚══════════════════════════════════════════════════════════════════════╝
 
+from aiogram.client.default import DefaultBotProperties
 from __future__ import annotations
 
 import asyncio
@@ -58,7 +59,7 @@ for _d in (config.BOTS_DIR, config.LOGS_DIR, config.BACKUPS_DIR, config.TEMP_DIR
 # ─────────────────────────────────────────────────────────────────────
 # BOT / DISPATCHER
 # ─────────────────────────────────────────────────────────────────────
-bot    = Bot(token=config.BOT_TOKEN, parse_mode=ParseMode.HTML)
+bot = Bot(token=config.BOT_TOKEN, default=DefaultBotProperties(parse_mode='HTML'))
 dp     = Dispatcher(storage=MemoryStorage())
 router = Router()
 
