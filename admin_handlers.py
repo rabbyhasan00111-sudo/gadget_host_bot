@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import shutil
 import time
 from contextlib import suppress
@@ -38,11 +39,12 @@ router = Router()
 # ─────────────────────────────────────────────────────────────────────
 
 class AdminState(StatesGroup):
-    note       = State()
-    give_coins = State()
-    send_msg   = State()
-    exec_cmd   = State()
-    broadcast  = State()   # not used for /broadcast (uses reply), kept for future
+    note        = State()
+    give_coins  = State()
+    give_slots  = State()   # separate state — avoids FSM conflict with give_coins
+    send_msg    = State()
+    exec_cmd    = State()
+    broadcast   = State()
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -57,22 +59,30 @@ async def _edit(cq: CallbackQuery, text: str, markup=None) -> None:
 
 
 def _require_admin(func):
-    async def _wrap(cq: CallbackQuery, *a, **kw):
+    """
+    Admin-only guard for CallbackQuery handlers.
+
+    Uses functools.wraps so aiogram 3's dependency-injection inspects the
+    *original* function's signature instead of the wrapper's **kwargs —
+    which previously caused "got an unexpected keyword argument 'dispatcher'".
+    """
+    @functools.wraps(func)
+    async def _wrap(cq: CallbackQuery, **kwargs):
         if not utils.is_admin(cq.from_user.id):
             await cq.answer("🚫  Admin only!", show_alert=True)
             return
-        return await func(cq, *a, **kw)
-    _wrap.__name__ = func.__name__
+        return await func(cq, **kwargs)
     return _wrap
 
 
 def _require_owner(func):
-    async def _wrap(msg: Message, *a, **kw):
+    """Owner-only guard for Message handlers. Same fix as _require_admin."""
+    @functools.wraps(func)
+    async def _wrap(msg: Message, **kwargs):
         if not utils.is_owner(msg.from_user.id):
             await msg.reply("🚫  <b>Owner only.</b>")
             return
-        return await func(msg, *a, **kw)
-    _wrap.__name__ = func.__name__
+        return await func(msg, **kwargs)
     return _wrap
 
 
@@ -533,15 +543,14 @@ async def cb_slots_prompt(cq: CallbackQuery, state: FSMContext):
         "Send new bonus slot count:",
         reply_markup=kb.kb_cancel("admin_home"),
     )
-    await state.set_state(AdminState.give_coins)   # reuse state, store marker
-    await state.update_data(target=uid, mode="slots")
+    await state.set_state(AdminState.give_slots)
+    await state.update_data(target=uid)
 
 
-@router.message(AdminState.give_coins, F.text)
+@router.message(AdminState.give_slots, F.text)
 async def handle_give_slots(msg: Message, state: FSMContext):
     data = await state.get_data()
-    if data.get("mode") != "slots":
-        return  # handled by handle_give_coins
+    uid  = data["target"]
     uid = data["target"]
     try:
         n = int(msg.text.strip())
